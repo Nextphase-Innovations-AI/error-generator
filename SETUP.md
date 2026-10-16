@@ -36,9 +36,26 @@ the test repository and enable:
 
 Billing note: on a **private** repository, code scanning, dependency review and secret scanning
 require GitHub Code Security and GitHub Secret Protection (formerly GitHub Advanced Security). On
-a **public** repository all of them are free. If you cannot enable them, make the test repository
-public, or expect the CodeQL and dependency-review workflows to fail with a licensing error rather
-than with the intended alert. Dependabot alerts are free on every repository.
+a **public** repository all of them are free. If the organisation has not purchased them, the API
+answers `Advanced security has not been purchased` and the CodeQL workflow fails with `Code
+scanning is not enabled for this repository`. The way out is to make the test repository public:
+
+```bash
+gh repo edit <owner>/error-generator --visibility public --accept-visibility-change-consequences
+```
+
+Dependabot alerts are free on every repository. The same settings can be set from the CLI:
+
+```bash
+gh api -X PUT repos/<owner>/error-generator/vulnerability-alerts
+```
+
+```bash
+gh api -X PATCH repos/<owner>/error-generator --input - <<< '{"security_and_analysis":{"secret_scanning":{"status":"enabled"}}}'
+```
+
+Code scanning on a public repository needs no setting: the `codeql.yml` workflow uploads its
+results as soon as it runs.
 
 Code scanning: because `codeql.yml` is committed, choose **Advanced** setup (or leave default
 setup off). Default setup and an advanced workflow conflict with each other.

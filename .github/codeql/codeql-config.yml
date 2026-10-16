@@ -1,0 +1,6 @@
+# actions-failures/ holds files that are broken on purpose; CodeQL would otherwise report an
+# extraction diagnostic for the syntax error instead of analysing the intended target.
+name: 'error-generator CodeQL config'
+paths-ignore:
+  - actions-failures
+  - node_modules
