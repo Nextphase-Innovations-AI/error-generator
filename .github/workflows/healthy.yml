@@ -1,0 +1,31 @@
+# Category 1 control: always passes, so the monitor sees green runs next to the red ones.
+name: 'Healthy'
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22.15.0'
+          # setup-node probes `yarn cache dir` before corepack is enabled; yarn 1 refuses the packageManager field.
+          package-manager-cache: false
+      - name: Enable corepack
+        run: corepack enable
+      - name: Install
+        run: yarn install --immutable
+      - run: yarn typecheck
+      - run: yarn lint
+      - run: yarn format:check
+      - run: yarn test

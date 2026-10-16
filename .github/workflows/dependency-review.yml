@@ -1,0 +1,22 @@
+# Category 2: dependency review. Fails the pull request opened by scripts/trigger-all when the
+# ci-error/dependency-review branch introduces a manifest pinning a vulnerable package.
+# On a private repository this needs GitHub Code Security enabled; see SETUP.md.
+name: 'Dependency review'
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: low
+          comment-summary-in-pr: on-failure

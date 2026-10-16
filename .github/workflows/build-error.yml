@@ -1,0 +1,28 @@
+# INTENTIONAL FAILURE (Category 1): compiles a file with a syntax error, so tsc exits non-zero.
+name: 'Error generator: build error'
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['ci-error/build-error']
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22.15.0'
+          # setup-node probes `yarn cache dir` before corepack is enabled; yarn 1 refuses the packageManager field.
+          package-manager-cache: false
+      - name: Enable corepack
+        run: corepack enable
+      - name: Install
+        run: yarn install --immutable
+      - name: Compile a file that does not parse
+        run: yarn tsc -p actions-failures/build-error/tsconfig.json

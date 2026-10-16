@@ -1,0 +1,11 @@
+dist
+coverage
+node_modules
+.yarn
+yarn.lock
+
+# Contains a deliberate syntax error that Prettier cannot parse.
+actions-failures/build-error/
+
+# Deliberately invalid YAML; GitHub must be the one to report the parse error.
+actions-failures/invalid-yaml/

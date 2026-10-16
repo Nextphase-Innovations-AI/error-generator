@@ -1,0 +1,28 @@
+# INTENTIONAL FAILURE (Category 1): runs a unit test whose assertion is wrong.
+name: 'Error generator: failing unit test'
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['ci-error/failing-test']
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22.15.0'
+          # setup-node probes `yarn cache dir` before corepack is enabled; yarn 1 refuses the packageManager field.
+          package-manager-cache: false
+      - name: Enable corepack
+        run: corepack enable
+      - name: Install
+        run: yarn install --immutable
+      - name: Run a test that always fails
+        run: yarn vitest run -c actions-failures/failing-test/vitest.config.ts

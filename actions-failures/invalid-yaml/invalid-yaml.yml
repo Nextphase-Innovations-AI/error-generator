@@ -1,0 +1,17 @@
+# INTENTIONAL ERROR (Category 1, invalid-yaml): the `steps` mapping below is indented wrongly, so
+# GitHub reports "Invalid workflow file" at parse time. This file is inert here; scripts/trigger-all
+# copies it to .github/workflows/invalid-yaml.yml on the ci-error/invalid-yaml branch.
+name: 'Error generator: invalid workflow YAML'
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['ci-error/invalid-yaml']
+
+jobs:
+  invalid:
+    runs-on: ubuntu-latest
+    steps:
+      - name: This step is indented incorrectly
+      run: echo "never runs"
+    - uses: actions/checkout@v5

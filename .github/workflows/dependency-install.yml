@@ -1,0 +1,28 @@
+# INTENTIONAL FAILURE (Category 1): adds a package name that does not exist on the npm registry.
+name: 'Error generator: failed dependency installation'
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['ci-error/dependency-install']
+
+permissions:
+  contents: read
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22.15.0'
+          # setup-node probes `yarn cache dir` before corepack is enabled; yarn 1 refuses the packageManager field.
+          package-manager-cache: false
+      - name: Enable corepack
+        run: corepack enable
+      - name: Install
+        run: yarn install --immutable
+      - name: Add a package that does not exist
+        run: yarn add --mode=skip-build error-generator-package-that-does-not-exist-7f3c2a@1.0.0

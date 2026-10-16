@@ -1,0 +1,41 @@
+{
+  "name": "error-generator",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Deliberately produces one example of every kind of error GitHub can surface, to exercise an issue-monitoring tool.",
+  "license": "MIT",
+  "packageManager": "yarn@4.10.3",
+  "engines": {
+    "node": ">=22.15.0 <23"
+  },
+  "scripts": {
+    "preinstall": "node scripts/only-yarn.mjs",
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "start": "tsx runtime-errors/src/server.ts",
+    "report": "tsx runtime-errors/src/reporter.ts",
+    "api-errors": "tsx api-errors/src/client.ts"
+  },
+  "dependencies": {
+    "express": "5.1.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.37.0",
+    "@types/express": "5.0.3",
+    "@types/node": "22.15.3",
+    "eslint": "9.37.0",
+    "eslint-config-prettier": "10.1.8",
+    "eslint-plugin-import-x": "4.16.1",
+    "globals": "16.4.0",
+    "prettier": "3.6.2",
+    "tsx": "4.20.6",
+    "typescript": "5.9.2",
+    "typescript-eslint": "8.46.0",
+    "vitest": "4.1.11"
+  }
+}

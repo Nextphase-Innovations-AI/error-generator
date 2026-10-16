@@ -1,0 +1,20 @@
+# INTENTIONAL FAILURE (Category 1): a shell step exits with a non-zero status.
+name: 'Error generator: non-zero shell exit'
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['ci-error/shell-exit']
+
+permissions:
+  contents: read
+
+jobs:
+  shell:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Exit with status 7
+        run: |
+          echo "About to exit with status 7 on purpose"
+          exit 7

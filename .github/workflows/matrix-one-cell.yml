@@ -1,0 +1,29 @@
+# INTENTIONAL FAILURE (Category 1): a three-cell matrix where exactly one cell exits non-zero.
+name: 'Error generator: one failing matrix cell'
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['ci-error/matrix-one-cell']
+
+permissions:
+  contents: read
+
+jobs:
+  matrix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        cell: [passes-a, passes-b, fails]
+    steps:
+      - name: Fail only in the cell named "fails"
+        env:
+          CELL: ${{ matrix.cell }}
+        run: |
+          if [ "$CELL" = "fails" ]; then
+            echo "::error::Matrix cell '$CELL' fails on purpose"
+            exit 1
+          fi
+          echo "Matrix cell '$CELL' passes"

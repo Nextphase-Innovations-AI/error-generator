@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": [
+    "runtime-errors/**/*.ts",
+    "api-errors/**/*.ts",
+    "security-alerts/codeql/**/*.ts",
+    "*.ts"
+  ],
+  "// exclude": "actions-failures/ holds files that are broken on purpose; each is checked only by its own workflow.",
+  "exclude": ["actions-failures/**", "node_modules/**"]
+}

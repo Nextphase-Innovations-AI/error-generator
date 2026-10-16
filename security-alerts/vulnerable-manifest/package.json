@@ -1,0 +1,9 @@
+{
+  "name": "error-generator-vulnerable-manifest",
+  "version": "0.0.0",
+  "private": true,
+  "description": "INTENTIONAL (Category 2, dependabot-alert): pins a dependency with a published GitHub advisory. Never installed; not a workspace of the root project.",
+  "dependencies": {
+    "lodash": "4.17.20"
+  }
+}

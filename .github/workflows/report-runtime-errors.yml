@@ -1,0 +1,62 @@
+# Category 3: starts the runtime error service, walks every error route and opens one GitHub
+# Issue per error type with the built-in Actions token. Idempotent: existing open issues are kept.
+name: 'Report runtime errors'
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Print the issues instead of creating them'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22.15.0'
+          # setup-node probes `yarn cache dir` before corepack is enabled; yarn 1 refuses the packageManager field.
+          package-manager-cache: false
+      - name: Enable corepack
+        run: corepack enable
+      - name: Install
+        run: yarn install --immutable
+      - name: Start the runtime error service
+        env:
+          PORT: '3000'
+        run: |
+          yarn start > service.log 2>&1 &
+          echo $! > service.pid
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:3000/health > /dev/null; then
+              echo "service is up after $attempt attempt(s)"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::service did not become healthy"
+          cat service.log
+          exit 1
+      - name: Run the reporter
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ERROR_SERVICE_URL: http://127.0.0.1:3000
+        run: |
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            yarn report --dry-run
+          else
+            yarn report
+          fi
+      - name: Stop the service
+        if: always()
+        run: |
+          if [ -f service.pid ]; then kill "$(cat service.pid)" || true; fi
+          cat service.log || true

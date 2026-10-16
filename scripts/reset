@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# Closes the issues the reporter created, closes the dependency-review pull request and deletes
+# every ci-error/* branch on origin. Alerts (Dependabot, code scanning, secret scanning) are not
+# touched: dismiss them in the repository's Security tab.
+#
+# Usage: scripts/reset [--repo owner/name] [--dry-run]
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+REPO=""
+DRY_RUN=0
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --repo) REPO="$2"; shift 2 ;;
+    --repo=*) REPO="${1#*=}"; shift ;;
+    --dry-run) DRY_RUN=1; shift ;;
+    -h|--help) sed -n '2,6p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) echo "unknown argument: $1" >&2; exit 1 ;;
+  esac
+done
+
+run() {
+  echo "+ $*"
+  if [ "$DRY_RUN" = 0 ]; then "$@"; fi
+}
+
+if [ -z "$REPO" ]; then
+  REPO="$(gh repo view --json nameWithOwner -q .nameWithOwner)"
+fi
+echo "repository: $REPO"
+
+echo
+echo "## Closing generated issues"
+ISSUES="$(gh issue list --repo "$REPO" --label runtime-errors --state open --limit 200 --json number -q '.[].number')"
+if [ -z "$ISSUES" ]; then
+  echo "no open issues labelled runtime-errors"
+else
+  for number in $ISSUES; do
+    run gh issue close "$number" --repo "$REPO" --reason "not planned" --comment "Closed by scripts/reset."
+  done
+fi
+
+echo
+echo "## Closing the dependency-review pull request"
+PRS="$(gh pr list --repo "$REPO" --head ci-error/dependency-review --state open --json number -q '.[].number')"
+if [ -z "$PRS" ]; then
+  echo "no open pull request from ci-error/dependency-review"
+else
+  for number in $PRS; do
+    run gh pr close "$number" --repo "$REPO" --comment "Closed by scripts/reset."
+  done
+fi
+
+echo
+echo "## Deleting ci-error/* branches"
+BRANCHES="$(git ls-remote --heads origin 'ci-error/*' | awk '{print $2}' | sed 's|^refs/heads/||')"
+if [ -z "$BRANCHES" ]; then
+  echo "no ci-error/* branches on origin"
+else
+  # shellcheck disable=SC2086
+  run git push origin --delete $BRANCHES
+fi
+
+echo
+echo "done."

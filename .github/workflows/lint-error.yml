@@ -1,0 +1,28 @@
+# INTENTIONAL FAILURE (Category 1): lints a file with an unused variable and an undefined identifier.
+name: 'Error generator: lint error'
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['ci-error/lint-error']
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22.15.0'
+          # setup-node probes `yarn cache dir` before corepack is enabled; yarn 1 refuses the packageManager field.
+          package-manager-cache: false
+      - name: Enable corepack
+        run: corepack enable
+      - name: Install
+        run: yarn install --immutable
+      - name: Lint a file with rule violations
+        run: yarn eslint -c actions-failures/lint-error/eslint.config.mjs actions-failures/lint-error/lint-error.mjs

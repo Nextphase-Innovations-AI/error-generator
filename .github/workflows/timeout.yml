@@ -1,0 +1,22 @@
+# INTENTIONAL FAILURE (Category 1): the step sleeps past its one-minute timeout. The sleep is
+# bounded, so the job can never run longer than the job-level timeout.
+name: 'Error generator: job timeout'
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['ci-error/timeout']
+
+permissions:
+  contents: read
+
+jobs:
+  timeout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Sleep past the step timeout
+        timeout-minutes: 1
+        run: |
+          echo "Sleeping for 100 seconds against a 1 minute timeout"
+          sleep 100

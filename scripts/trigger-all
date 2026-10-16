@@ -1,0 +1,160 @@
+#!/usr/bin/env bash
+# Dispatches every error-generator workflow, pushes the ci-error/* branches and runs the
+# reporters. Requires the gh CLI, authenticated, and a remote named origin that already carries
+# the default branch with these files.
+#
+# Usage: scripts/trigger-all [--category 1|2|3|4|all] [--repo owner/name] [--dry-run]
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+CATEGORY=all
+REPO=""
+DRY_RUN=0
+
+usage() {
+  sed -n '2,6p' "$0" | sed 's/^# \{0,1\}//'
+  exit "${1:-0}"
+}
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --category) CATEGORY="$2"; shift 2 ;;
+    --category=*) CATEGORY="${1#*=}"; shift ;;
+    --repo) REPO="$2"; shift 2 ;;
+    --repo=*) REPO="${1#*=}"; shift ;;
+    --dry-run) DRY_RUN=1; shift ;;
+    -h|--help) usage 0 ;;
+    *) echo "unknown argument: $1" >&2; usage 1 ;;
+  esac
+done
+
+case "$CATEGORY" in
+  1|actions) CATEGORY=1 ;;
+  2|security) CATEGORY=2 ;;
+  3|runtime) CATEGORY=3 ;;
+  4|api) CATEGORY=4 ;;
+  all) ;;
+  *) echo "unknown category: $CATEGORY (use 1-4 or all)" >&2; exit 1 ;;
+esac
+
+run() {
+  if [ "$DRY_RUN" = 1 ]; then
+    echo "+ $*"
+  else
+    echo "+ $*"
+    "$@"
+  fi
+}
+
+if [ -z "$REPO" ]; then
+  REPO="$(gh repo view --json nameWithOwner -q .nameWithOwner)"
+fi
+DEFAULT_BRANCH="$(gh repo view "$REPO" --json defaultBranchRef -q .defaultBranchRef.name)"
+HEAD_SHA="$(git rev-parse HEAD)"
+
+echo "repository:     $REPO"
+echo "default branch: $DEFAULT_BRANCH"
+echo "local HEAD:     $HEAD_SHA"
+
+git fetch --quiet origin "$DEFAULT_BRANCH" || true
+REMOTE_SHA="$(git rev-parse "origin/$DEFAULT_BRANCH" 2>/dev/null || echo unknown)"
+if [ "$REMOTE_SHA" != "$HEAD_SHA" ]; then
+  echo "warning: origin/$DEFAULT_BRANCH ($REMOTE_SHA) differs from HEAD; workflows dispatch from the remote default branch" >&2
+fi
+
+# Pushes HEAD, plus one extra file, to a ci-error/* branch without touching the working tree.
+push_branch_with_file() {
+  local branch="$1" source="$2" target="$3" message="$4"
+  if [ "$DRY_RUN" = 1 ]; then
+    echo "+ (commit $source as $target on top of HEAD and push to $branch)"
+    return
+  fi
+  local index blob tree commit
+  index="$(mktemp)"
+  rm -f "$index"
+  GIT_INDEX_FILE="$index" git read-tree HEAD
+  blob="$(git hash-object -w "$source")"
+  GIT_INDEX_FILE="$index" git update-index --add --cacheinfo "100644,$blob,$target"
+  tree="$(GIT_INDEX_FILE="$index" git write-tree)"
+  rm -f "$index"
+  commit="$(git commit-tree "$tree" -p HEAD -m "$message")"
+  echo "+ git push --force origin ${commit}:refs/heads/${branch}"
+  git push --force origin "${commit}:refs/heads/${branch}"
+}
+
+ACTIONS_WORKFLOWS=(
+  build-error
+  failing-test
+  lint-error
+  type-error
+  timeout
+  missing-secret
+  shell-exit
+  dependency-install
+  matrix-one-cell
+)
+
+category_1() {
+  echo
+  echo "## Category 1: GitHub Actions workflow failures"
+  for name in "${ACTIONS_WORKFLOWS[@]}"; do
+    run gh workflow run "$name.yml" --repo "$REPO" --ref "$DEFAULT_BRANCH"
+    run git push --force origin "HEAD:refs/heads/ci-error/$name"
+  done
+  push_branch_with_file \
+    ci-error/invalid-yaml \
+    actions-failures/invalid-yaml/invalid-yaml.yml \
+    .github/workflows/invalid-yaml.yml \
+    "ci-error: add intentionally invalid workflow YAML"
+  run gh workflow run healthy.yml --repo "$REPO" --ref "$DEFAULT_BRANCH"
+}
+
+category_2() {
+  echo
+  echo "## Category 2: security and code-quality alerts"
+  echo "Dependabot and secret scanning alerts need no trigger: they appear once the default branch is scanned."
+  run gh workflow run codeql.yml --repo "$REPO" --ref "$DEFAULT_BRANCH"
+  push_branch_with_file \
+    ci-error/dependency-review \
+    security-alerts/dependency-review.package.json \
+    security-alerts/dependency-review/package.json \
+    "ci-error: introduce a manifest pinning minimist@1.2.5 (GHSA-xvch-5gv4-984h)"
+  if [ "$DRY_RUN" = 1 ]; then
+    echo "+ gh pr create --repo $REPO --head ci-error/dependency-review --base $DEFAULT_BRANCH ..."
+  elif [ -z "$(gh pr list --repo "$REPO" --head ci-error/dependency-review --state open --json number -q '.[].number')" ]; then
+    gh pr create --repo "$REPO" --head ci-error/dependency-review --base "$DEFAULT_BRANCH" \
+      --title "[error-generator] dependency review: vulnerable manifest" \
+      --body "Intentional. Introduces security-alerts/dependency-review/package.json pinning minimist@1.2.5 (GHSA-xvch-5gv4-984h) so the dependency-review workflow fails. Close with scripts/reset."
+  else
+    echo "pull request for ci-error/dependency-review is already open"
+  fi
+}
+
+category_3() {
+  echo
+  echo "## Category 3: runtime errors reported as GitHub Issues"
+  run gh workflow run report-runtime-errors.yml --repo "$REPO" --ref "$DEFAULT_BRANCH"
+}
+
+category_4() {
+  echo
+  echo "## Category 4: GitHub REST API error responses"
+  if [ -z "${GITHUB_TOKEN:-}" ]; then
+    GITHUB_TOKEN="$(gh auth token)"
+    export GITHUB_TOKEN
+  fi
+  export GITHUB_REPOSITORY="$REPO"
+  run yarn api-errors
+}
+
+case "$CATEGORY" in
+  1) category_1 ;;
+  2) category_2 ;;
+  3) category_3 ;;
+  4) category_4 ;;
+  all) category_1; category_2; category_3; category_4 ;;
+esac
+
+echo
+echo "done. Watch runs with: gh run list --repo $REPO --limit 30"

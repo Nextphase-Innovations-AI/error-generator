@@ -1,0 +1,9 @@
+{
+  "name": "error-generator-dependency-review",
+  "version": "0.0.0",
+  "private": true,
+  "description": "INTENTIONAL (Category 2, dependency-review failure): copied to security-alerts/dependency-review/package.json on the ci-error/dependency-review branch by scripts/trigger-all. Pins minimist@1.2.5, advisory GHSA-xvch-5gv4-984h. Never installed.",
+  "dependencies": {
+    "minimist": "1.2.5"
+  }
+}

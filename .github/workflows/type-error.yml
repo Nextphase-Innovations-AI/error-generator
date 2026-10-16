@@ -1,0 +1,28 @@
+# INTENTIONAL FAILURE (Category 1): type-checks a file that assigns a string to a number.
+name: 'Error generator: type-check error'
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['ci-error/type-error']
+
+permissions:
+  contents: read
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22.15.0'
+          # setup-node probes `yarn cache dir` before corepack is enabled; yarn 1 refuses the packageManager field.
+          package-manager-cache: false
+      - name: Enable corepack
+        run: corepack enable
+      - name: Install
+        run: yarn install --immutable
+      - name: Type-check a file with a type mismatch
+        run: yarn tsc -p actions-failures/type-error/tsconfig.json
